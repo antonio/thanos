@@ -400,10 +400,11 @@ func (api *API) queryRange(r *http.Request) (interface{}, []error, *ApiError) {
 	span, ctx := tracing.StartSpan(ctx, "promql_range_query")
 	defer span.Finish()
 
+	queryString := r.FormValue("query")
 	begin := api.now()
 	qry, err := api.queryEngine.NewRangeQuery(
 		api.queryableCreate(enableDedup, maxSourceResolution, enablePartialResponse, warningReporter),
-		r.FormValue("query"),
+		queryString,
 		start,
 		end,
 		step,
@@ -412,18 +413,23 @@ func (api *API) queryRange(r *http.Request) (interface{}, []error, *ApiError) {
 		return nil, nil, &ApiError{errorBadData, err}
 	}
 
+	level.Info(api.logger).Log("msg", "range query started", "query", queryString)
 	res := qry.Exec(ctx)
 	if res.Err != nil {
 		switch res.Err.(type) {
 		case promql.ErrQueryCanceled:
+			level.Info(api.logger).Log("msg", "range query cancelled", "query", queryString)
 			return nil, nil, &ApiError{errorCanceled, res.Err}
 		case promql.ErrQueryTimeout:
+			level.Info(api.logger).Log("msg", "range query timeout", "query", queryString)
 			return nil, nil, &ApiError{errorTimeout, res.Err}
 		}
+		level.Info(api.logger).Log("msg", "unknown error", "query", queryString)
 		return nil, nil, &ApiError{errorExec, res.Err}
 	}
-	api.rangeQueryDuration.Observe(time.Since(begin).Seconds())
-
+	queryTime := time.Since(begin).Seconds()
+	api.instantQueryDuration.Observe(queryTime)
+	level.Info(api.logger).Log("msg", "range query completed", "query", queryString, "time", queryTime)
 	return &queryData{
 		ResultType: res.Value.Type(),
 		Result:     res.Value,
