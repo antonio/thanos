@@ -421,7 +421,7 @@ func (api *API) queryRange(r *http.Request) (interface{}, []error, *ApiError) {
 			level.Info(api.logger).Log("msg", "range query cancelled", "query", queryString)
 			return nil, nil, &ApiError{errorCanceled, res.Err}
 		case promql.ErrQueryTimeout:
-			level.Info(api.logger).Log("msg", "range query timeout", "query", queryString)
+			level.Info(api.logger).Log("msg", "range query timed out", "query", queryString)
 			return nil, nil, &ApiError{errorTimeout, res.Err}
 		}
 		level.Info(api.logger).Log("msg", "unknown error", "query", queryString)
