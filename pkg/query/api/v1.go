@@ -29,6 +29,7 @@ import (
 	"github.com/NYTimes/gziphandler"
 
 	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 	extpromhttp "github.com/improbable-eng/thanos/pkg/extprom/http"
 	"github.com/improbable-eng/thanos/pkg/query"
 	"github.com/improbable-eng/thanos/pkg/runutil"
@@ -293,25 +294,33 @@ func (api *API) query(r *http.Request) (interface{}, []error, *ApiError) {
 	span, ctx := tracing.StartSpan(ctx, "promql_instant_query")
 	defer span.Finish()
 
+	queryString := r.FormValue("query")
 	begin := api.now()
-	qry, err := api.queryEngine.NewInstantQuery(api.queryableCreate(enableDedup, 0, enablePartialResponse, warningReporter), r.FormValue("query"), ts)
+	qry, err := api.queryEngine.NewInstantQuery(api.queryableCreate(enableDedup, 0, enablePartialResponse, warningReporter), queryString, ts)
 	if err != nil {
 		return nil, nil, &ApiError{errorBadData, err}
 	}
 
+	level.Info(api.logger).Log("msg", "query started", "query", queryString)
 	res := qry.Exec(ctx)
 	if res.Err != nil {
 		switch res.Err.(type) {
 		case promql.ErrQueryCanceled:
+			level.Info(api.logger).Log("msg", "query cancelled", "query", queryString)
 			return nil, nil, &ApiError{errorCanceled, res.Err}
 		case promql.ErrQueryTimeout:
+			level.Info(api.logger).Log("msg", "query timeout", "query", queryString)
 			return nil, nil, &ApiError{errorTimeout, res.Err}
 		case promql.ErrStorage:
+			level.Info(api.logger).Log("msg", "internal error", "query", queryString)
 			return nil, nil, &ApiError{ErrorInternal, res.Err}
 		}
+		level.Info(api.logger).Log("msg", "unknown error", "query", queryString)
 		return nil, nil, &ApiError{errorExec, res.Err}
 	}
-	api.instantQueryDuration.Observe(time.Since(begin).Seconds())
+	queryTime := time.Since(begin).Seconds()
+	api.instantQueryDuration.Observe(queryTime)
+	level.Info(api.logger).Log("msg", "query completed", "query", queryString, "time", queryTime)
 
 	return &queryData{
 		ResultType: res.Value.Type(),
