@@ -301,26 +301,26 @@ func (api *API) query(r *http.Request) (interface{}, []error, *ApiError) {
 		return nil, nil, &ApiError{errorBadData, err}
 	}
 
-	level.Info(api.logger).Log("msg", "query started", "query", queryString)
+	level.Info(api.logger).Log("msg", "query started", "query", queryString, "range", "0s")
 	res := qry.Exec(ctx)
 	if res.Err != nil {
 		switch res.Err.(type) {
 		case promql.ErrQueryCanceled:
-			level.Info(api.logger).Log("msg", "query cancelled", "query", queryString)
+			level.Info(api.logger).Log("msg", "query cancelled", "query", queryString, "range", "0s")
 			return nil, nil, &ApiError{errorCanceled, res.Err}
 		case promql.ErrQueryTimeout:
-			level.Info(api.logger).Log("msg", "query timeout", "query", queryString)
+			level.Info(api.logger).Log("msg", "query timeout", "query", queryString, "range", "0s")
 			return nil, nil, &ApiError{errorTimeout, res.Err}
 		case promql.ErrStorage:
-			level.Info(api.logger).Log("msg", "internal error", "query", queryString)
+			level.Info(api.logger).Log("msg", "internal error", "query", queryString, "range", "0s")
 			return nil, nil, &ApiError{ErrorInternal, res.Err}
 		}
-		level.Info(api.logger).Log("msg", "unknown error", "query", queryString)
+		level.Info(api.logger).Log("msg", "unknown error", "query", queryString, "range", "0s")
 		return nil, nil, &ApiError{errorExec, res.Err}
 	}
 	queryTime := time.Since(begin).Seconds()
 	api.instantQueryDuration.Observe(queryTime)
-	level.Info(api.logger).Log("msg", "query completed", "query", queryString, "time", queryTime)
+	level.Info(api.logger).Log("msg", "query completed", "query", queryString, "time", queryTime, "range", "0s")
 
 	return &queryData{
 		ResultType: res.Value.Type(),
@@ -352,9 +352,11 @@ func (api *API) queryRange(r *http.Request) (interface{}, []error, *ApiError) {
 		return nil, nil, &ApiError{errorBadData, err}
 	}
 
+	queryRange := end.Sub(start)
+
 	// For safety, limit the number of returned points per timeseries.
 	// This is sufficient for 60s resolution for a week or 1h resolution for a year.
-	if end.Sub(start)/step > 11000 {
+	if queryRange/step > 11000 {
 		err := errors.Errorf("exceeded maximum resolution of 11,000 points per timeseries. Try decreasing the query resolution (?step=XX)")
 		return nil, nil, &ApiError{errorBadData, err}
 	}
@@ -413,23 +415,23 @@ func (api *API) queryRange(r *http.Request) (interface{}, []error, *ApiError) {
 		return nil, nil, &ApiError{errorBadData, err}
 	}
 
-	level.Info(api.logger).Log("msg", "range query started", "query", queryString)
+	level.Info(api.logger).Log("msg", "range query started", "query", queryString, "range", queryRange)
 	res := qry.Exec(ctx)
 	if res.Err != nil {
 		switch res.Err.(type) {
 		case promql.ErrQueryCanceled:
-			level.Info(api.logger).Log("msg", "range query cancelled", "query", queryString)
+			level.Info(api.logger).Log("msg", "range query cancelled", "query", queryString, "range", queryRange)
 			return nil, nil, &ApiError{errorCanceled, res.Err}
 		case promql.ErrQueryTimeout:
-			level.Info(api.logger).Log("msg", "range query timed out", "query", queryString)
+			level.Info(api.logger).Log("msg", "range query timed out", "query", queryString, "range", queryRange)
 			return nil, nil, &ApiError{errorTimeout, res.Err}
 		}
-		level.Info(api.logger).Log("msg", "unknown error", "query", queryString)
+		level.Info(api.logger).Log("msg", "unknown error", "query", queryString, "range", queryRange)
 		return nil, nil, &ApiError{errorExec, res.Err}
 	}
 	queryTime := time.Since(begin).Seconds()
 	api.instantQueryDuration.Observe(queryTime)
-	level.Info(api.logger).Log("msg", "range query completed", "query", queryString, "time", queryTime)
+	level.Info(api.logger).Log("msg", "range query completed", "query", queryString, "time", queryTime, "range", queryRange)
 	return &queryData{
 		ResultType: res.Value.Type(),
 		Result:     res.Value,
