@@ -12,7 +12,7 @@ import (
 )
 
 type Config struct {
-	AccessToken string `yaml:"access_token"`
+	lightstep.Options
 }
 
 type Tracer struct {
@@ -29,14 +29,11 @@ func (t *Tracer) Close() error {
 
 func NewTracer(ctx context.Context, logger log.Logger, yamlConfig []byte) (opentracing.Tracer, io.Closer, error) {
 	config := Config{}
-	if err := yaml.Unmarshal(yamlConfig, &config); err != nil {
+	if err := yaml.Unmarshal(yamlConfig, &config.Options); err != nil {
 		return nil, nil, err
 	}
 
-	options := lightstep.Options{
-		AccessToken: config.AccessToken,
-	}
-	lighstepTracer := lightstep.NewTracer(options)
+	lighstepTracer := lightstep.NewTracer(config.Options)
 	if lighstepTracer == nil { // lightstep.NewTracer returns nil when there is an error
 		return nil, nil, errors.New("error creating Lightstep tracer")
 	}
