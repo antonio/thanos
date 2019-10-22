@@ -19,7 +19,8 @@ type Tracer struct {
 	opentracing.Tracer
 }
 
-func (t *Tracer) Close() {
+func (t *Tracer) Close() error {
+
 }
 
 func NewTracer(ctx context.Context, logger log.Logger, yamlConfig []byte) (opentracing.Tracer, io.Closer, error) {
@@ -31,9 +32,13 @@ func NewTracer(ctx context.Context, logger log.Logger, yamlConfig []byte) (opent
 	options := lightstep.Options{
 		AccessToken: config.AccessToken,
 	}
-	tracer := lightstep.NewTracer(options)
-	if tracer == nil { // lightstep.NewTracer returns nil when there is an error
+	lighstepTracer := lightstep.NewTracer(options)
+	if lighstepTracer == nil { // lightstep.NewTracer returns nil when there is an error
 		return nil, nil, errors.New("error creating Lightstep tracer")
 	}
-	return tracer, tracer, nil
+
+	t := &Tracer{
+		lighstepTracer,
+	}
+	return t, t, nil
 }
