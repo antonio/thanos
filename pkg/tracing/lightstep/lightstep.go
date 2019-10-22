@@ -17,10 +17,14 @@ type Config struct {
 
 type Tracer struct {
 	opentracing.Tracer
+	ctx context.Context
 }
 
 func (t *Tracer) Close() error {
+	lightstepTracer := t.Tracer.(lightstep.Tracer)
+	lightstepTracer.Close(t.ctx)
 
+	return nil
 }
 
 func NewTracer(ctx context.Context, logger log.Logger, yamlConfig []byte) (opentracing.Tracer, io.Closer, error) {
@@ -39,6 +43,7 @@ func NewTracer(ctx context.Context, logger log.Logger, yamlConfig []byte) (opent
 
 	t := &Tracer{
 		lighstepTracer,
+		ctx,
 	}
 	return t, t, nil
 }
