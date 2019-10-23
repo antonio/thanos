@@ -6,7 +6,6 @@ import (
 	"io"
 
 	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 	"github.com/lightstep/lightstep-tracer-go"
 	"github.com/opentracing/opentracing-go"
 	"gopkg.in/yaml.v2"
@@ -48,19 +47,6 @@ func NewTracer(ctx context.Context, logger log.Logger, yamlConfig []byte) (opent
 	if lighstepTracer == nil { // lightstep.NewTracer returns nil when there is an error
 		return nil, nil, errors.New("error creating Lightstep tracer")
 	}
-
-	logHandler := func(event lightstep.Event) {
-		switch event := event.(type) {
-		case lightstep.EventStatusReport:
-			level.Info(logger).Log("msg", event, "duration", event.Duration)
-		case lightstep.ErrorEvent:
-			level.Error(logger).Log("msg", event)
-		default:
-			level.Info(logger).Log("msg", event)
-		}
-	}
-
-	lightstep.SetGlobalEventHandler(logHandler)
 
 	t := &Tracer{
 		lighstepTracer,
