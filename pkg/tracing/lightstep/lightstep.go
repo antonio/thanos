@@ -5,6 +5,8 @@ import (
 	"errors"
 	"io"
 
+	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 	"github.com/lightstep/lightstep-tracer-go"
 	"github.com/opentracing/opentracing-go"
 	"gopkg.in/yaml.v2"
@@ -34,16 +36,31 @@ func (t *Tracer) Close() error {
 	return nil
 }
 
+type LoggingRecorder struct {
+	r      lightstep.SpanRecorder
+	Logger log.Logger
+}
+
+func (lr *LoggingRecorder) RecordSpan(s lightstep.RawSpan) {
+	if s.Operation == "promql_range_query" || s.Operation == "promql_instant_query" {
+		level.Info(lr.Logger).Log("operation", s.Operation, "query", s.Tags["query"], "duration", s.Duration, s.Tags)
+	}
+}
+
 // NewTracer creates a Tracer with the options present in the YAML config.
-func NewTracer(ctx context.Context, yamlConfig []byte) (opentracing.Tracer, io.Closer, error) {
+func NewTracer(ctx context.Context, logger log.Logger, yamlConfig []byte) (opentracing.Tracer, io.Closer, error) {
 	config := Config{}
 	if err := yaml.Unmarshal(yamlConfig, &config); err != nil {
 		return nil, nil, err
 	}
 
+	recorder := &LoggingRecorder{
+		Logger: logger,
+	}
 	options := lightstep.Options{
 		AccessToken: config.AccessToken,
 		Collector:   config.Collector,
+		Recorder:    recorder,
 	}
 	lighstepTracer := lightstep.NewTracer(options)
 	if lighstepTracer == nil { // lightstep.NewTracer returns nil when there is an error

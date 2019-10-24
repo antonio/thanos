@@ -56,7 +56,7 @@ func NewTracer(ctx context.Context, logger log.Logger, metrics *prometheus.Regis
 	case string(ELASTIC_APM):
 		return elasticapm.NewTracer(config)
 	case string(LIGHTSTEP):
-		return lightstep.NewTracer(ctx, config)
+		return lightstep.NewTracer(ctx, logger, config)
 	default:
 		return nil, nil, errors.Errorf("tracing with type %s is not supported", tracingConf.Type)
 	}
