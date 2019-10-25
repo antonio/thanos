@@ -383,6 +383,8 @@ func (api *API) queryRange(r *http.Request) (interface{}, []error, *ApiError) {
 
 	// We are starting promQL tracing span here, because we have no control over promQL code.
 	span, ctx := tracing.StartSpan(ctx, "promql_range_query")
+	span.SetTag("range", end.Sub(start))
+	span.SetTag("step", step)
 	defer span.Finish()
 
 	qry, err := api.queryEngine.NewRangeQuery(

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"io"
-	"net/url"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
@@ -43,15 +42,11 @@ type LoggingRecorder struct {
 }
 
 func (lr *LoggingRecorder) RecordSpan(s lightstep.RawSpan) {
-	if s.Operation == "promql_range_query" || s.Operation == "promql_instant_query" {
-		level.Info(lr.Logger).Log("operation", s.Operation, "query", s.Tags["query"], "duration", s.Duration)
-	} else if s.Operation == "/query_range HTTP[server]" {
-		values := url.ParseQuery(s.Tags["http.url"])
-		timeRange := values["end"] - values["start"]
-		level.Info(lr.Logger).Log("operation", "range query", "query", values["query"], "duration", s.Duration)
-	} else if s.Operation == "/query HTTP[server]" {
-		values := url.ParseQuery(s.Tags["http.url"])
-		level.Info(lr.Logger).Log("operation", "instant query", "query", values["query"], "duration", s.Duration)
+	if s.Operation == "promql_instant_query" {
+		level.Info(lr.Logger).Log("operation", s.Operation, "query", s.Tags["query"], "duration", s.Duration.Seconds())
+	} else if s.Operation == "promql_range_query" {
+		level.Info(lr.Logger).Log("operation", s.Operation, "query", s.Tags["query"],
+			"range", s.Tags["range"], "step", s.Tags["step"], "duration", s.Duration.Seconds())
 	}
 }
 
